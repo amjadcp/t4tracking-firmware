@@ -8,5 +8,5 @@ void mqttLoop();
 bool isMqttConnected();
 void publishLocation(float lat, float lng, float speed, String statusMsg = "moving");
 
-#endif // MQTT_MANAGER_H
+#endif
 

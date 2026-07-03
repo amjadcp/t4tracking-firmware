@@ -15,5 +15,5 @@ extern bool ec200ModuleReady;
 extern bool ec200SimReady;
 extern bool ec200NetworkReady;
 
-#endif // EC200_H
+#endif
 

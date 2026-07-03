@@ -12,5 +12,5 @@ float getLongitude();
 float getSpeedKmph();
 int getSatellites();
 
-#endif // GPS_H
+#endif
 

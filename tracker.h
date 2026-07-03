@@ -8,5 +8,5 @@ void trackerLoop();
 String buildLocationMessage();
 void handleSerialCommand(String cmd);
 
-#endif // TRACKER_H
+#endif
 

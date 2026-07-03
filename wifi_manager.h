@@ -7,5 +7,5 @@ void wifiSetup();
 void wifiLoop();
 bool isWifiConnected();
 
-#endif // WIFI_MANAGER_H
+#endif
 

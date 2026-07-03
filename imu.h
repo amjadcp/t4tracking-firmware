@@ -17,5 +17,5 @@ float getTemp();
 
 bool isImuConnected();
 
-#endif // IMU_H
+#endif
 

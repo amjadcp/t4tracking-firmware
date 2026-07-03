@@ -18,8 +18,10 @@
 
 // Tracking Logic
 #define DEVICE_ID     "GPS_MODULE"
-#define MQTT_PUBLISH_INTERVAL_MS 5000 // 5 seconds
-#define MOVEMENT_THRESHOLD_KMPH  1.0  // km/h threshold to consider "moving"
+#define MQTT_TRAVELING_PUBLISH_INTERVAL_MS 3000   // 3 seconds
+#define STATIONARY_PAUSED_THRESHOLD_MS     10000  // 10 seconds
+#define STATIONARY_STOP_THRESHOLD_MS       300000 // 5 minutes (300 seconds)
+#define MOVEMENT_THRESHOLD_KMPH            1.0    // km/h threshold to consider "moving"
 
 #endif
 
