@@ -3,6 +3,6 @@
 
 #include <Arduino.h>
 
-void sendWebhookData(String lat, String lng, String speed, String sats, String acc, String gyro, String temp, String lteMod, String lteSim, String lteNet);
+void sendWebhook(String jsonPayload);
 
 #endif

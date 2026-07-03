@@ -22,6 +22,7 @@
 #define STATIONARY_PAUSED_THRESHOLD_MS     10000  // 10 seconds
 #define STATIONARY_STOP_THRESHOLD_MS       300000 // 5 minutes (300 seconds)
 #define MOVEMENT_THRESHOLD_KMPH            1.0    // km/h threshold to consider "moving"
+#define WEBHOOK_PUBLISH_INTERVAL_MS        15000  // 15 seconds for diagnostic log transmission
 
 #endif
 

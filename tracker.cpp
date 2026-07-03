@@ -16,9 +16,20 @@ enum TrackerMode {
 
 static TrackerMode currentMode = MODE_INITIAL;
 static unsigned long lastMqttPublishTime = 0;
+static unsigned long lastWebhookTime = 0;
 static unsigned long stationaryStartTime = 0;
 static float prevLat = 0.0;
 static float prevLng = 0.0;
+
+static String getModeString(TrackerMode mode) {
+    switch (mode) {
+        case MODE_INITIAL: return "INITIAL";
+        case MODE_TRAVELING: return "TRAVELING";
+        case MODE_PAUSED: return "PAUSED";
+        case MODE_ABSOLUTE_STATIONARY: return "ABSOLUTE_STATIONARY";
+        default: return "UNKNOWN";
+    }
+}
 
 static void printSensorTable(float lat, float lng, float speed, bool imuOk) {
     String latStr = String(lat, 6);
@@ -50,9 +61,63 @@ static void printSensorTable(float lat, float lng, float speed, bool imuOk) {
     Serial.printf("| %-20s | %-22s |\n", "LTE SIM", lteSimStr.c_str());
     Serial.printf("| %-20s | %-22s |\n", "LTE Network", lteNetStr.c_str());
     Serial.println("=================================================");
+}
 
-    // Send to Webhook (Errors/timeouts here won't block the rest of the loop)
-    sendWebhookData(latStr, lngStr, speedStr, satsStr, accStr, gyroStr, tempStr, lteModStr, lteSimStr, lteNetStr);
+static void sendDiagnosticWebhook(unsigned long currentMillis, TrackerMode mode, bool wifiConnected, bool mqttConnected) {
+    bool gpsOk = isLocationValid();
+    bool imuOk = isImuConnected();
+
+    String payload = "{";
+    payload += "\"device_id\":\"" + String(DEVICE_ID) + "\",";
+    payload += "\"uptime_ms\":" + String(currentMillis) + ",";
+    payload += "\"free_heap_bytes\":" + String(ESP.getFreeHeap()) + ",";
+    payload += "\"tracker_mode\":\"" + getModeString(mode) + "\",";
+    payload += "\"network\":{";
+    payload += "\"wifi_connected\":" + String(wifiConnected ? "true" : "false") + ",";
+    payload += "\"mqtt_connected\":" + String(mqttConnected ? "true" : "false") + ",";
+    payload += "\"lte_module_ready\":" + String(ec200ModuleReady ? "true" : "false") + ",";
+    payload += "\"lte_sim_ready\":" + String(ec200SimReady ? "true" : "false") + ",";
+    payload += "\"lte_net_ready\":" + String(ec200NetworkReady ? "true" : "false");
+    payload += "},";
+
+    payload += "\"gps\":{";
+    payload += "\"valid\":" + String(gpsOk ? "true" : "false") + ",";
+    if (gpsOk) {
+        payload += "\"lat\":" + String(getLatitude(), 6) + ",";
+        payload += "\"lng\":" + String(getLongitude(), 6) + ",";
+        payload += "\"speed_kmph\":" + String(getSpeedKmph(), 1) + ",";
+        payload += "\"satellites\":" + String(getSatellites());
+    } else {
+        payload += "\"lat\":null,";
+        payload += "\"lng\":null,";
+        payload += "\"speed_kmph\":null,";
+        payload += "\"satellites\":null";
+    }
+    payload += "},";
+
+    payload += "\"imu\":{";
+    payload += "\"connected\":" + String(imuOk ? "true" : "false") + ",";
+    if (imuOk) {
+        payload += "\"temp_c\":" + String(getTemp(), 1) + ",";
+        payload += "\"accel_x\":" + String(getAccX(), 2) + ",";
+        payload += "\"accel_y\":" + String(getAccY(), 2) + ",";
+        payload += "\"accel_z\":" + String(getAccZ(), 2) + ",";
+        payload += "\"gyro_x\":" + String(getGyroX(), 2) + ",";
+        payload += "\"gyro_y\":" + String(getGyroY(), 2) + ",";
+        payload += "\"gyro_z\":" + String(getGyroZ(), 2);
+    } else {
+        payload += "\"temp_c\":null,";
+        payload += "\"accel_x\":null,";
+        payload += "\"accel_y\":null,";
+        payload += "\"accel_z\":null,";
+        payload += "\"gyro_x\":null,";
+        payload += "\"gyro_y\":null,";
+        payload += "\"gyro_z\":null";
+    }
+    payload += "}";
+    payload += "}";
+
+    sendWebhook(payload);
 }
 
 void trackerSetup() {
@@ -62,23 +127,35 @@ void trackerSetup() {
 void trackerLoop() {
     unsigned long currentMillis = millis();
 
-    // Check if network is connected. Run check every 5 seconds to avoid flooding console.
-    static unsigned long lastConnCheckTime = 0;
     bool wifiConnected = isWifiConnected();
     bool mqttConnected = isMqttConnected();
-    
-    if (!wifiConnected || !mqttConnected) {
+
+    // Check WiFi connectivity. If down, print status and skip everything.
+    static unsigned long lastConnCheckTime = 0;
+    if (!wifiConnected) {
         if (currentMillis - lastConnCheckTime >= 5000) {
             lastConnCheckTime = currentMillis;
-            Serial.print("[STATUS] WiFi: ");
-            Serial.print(wifiConnected ? "CONNECTED" : "DISCONNECTED");
-            Serial.print(" | MQTT: ");
-            Serial.println(mqttConnected ? "CONNECTED" : "DISCONNECTED");
+            Serial.println("[STATUS] WiFi: DISCONNECTED");
         }
         return;
     }
 
-    // Only run tracking if GPS is connected and has a valid fix
+    // WiFi is connected. Send diagnostic webhook periodically.
+    if (currentMillis - lastWebhookTime >= WEBHOOK_PUBLISH_INTERVAL_MS) {
+        lastWebhookTime = currentMillis;
+        sendDiagnosticWebhook(currentMillis, currentMode, wifiConnected, mqttConnected);
+    }
+
+    // Check MQTT connectivity. If down, skip state machine logic.
+    if (!mqttConnected) {
+        if (currentMillis - lastConnCheckTime >= 5000) {
+            lastConnCheckTime = currentMillis;
+            Serial.println("[STATUS] WiFi: CONNECTED | MQTT: DISCONNECTED");
+        }
+        return;
+    }
+
+    // Only run state machine tracking if GPS is connected and has a valid fix
     bool gpsOk = isLocationValid();
     bool imuOk = isImuConnected();
 

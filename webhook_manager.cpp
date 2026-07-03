@@ -5,7 +5,7 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 
-void sendWebhookData(String lat, String lng, String speed, String sats, String acc, String gyro, String temp, String lteMod, String lteSim, String lteNet) {
+void sendWebhook(String jsonPayload) {
 #ifdef WEBHOOK_URL
     if (strlen(WEBHOOK_URL) == 0) {
         return; // Webhook URL is empty, feature disabled
@@ -17,21 +17,6 @@ void sendWebhookData(String lat, String lng, String speed, String sats, String a
     String url = String(WEBHOOK_URL);
     bool isHttps = url.startsWith("https://");
 
-    // Construct the payload JSON first
-    String payload = "{";
-    payload += "\"device_id\":\"" + String(DEVICE_ID) + "\",";
-    payload += "\"lat\":\"" + lat + "\",";
-    payload += "\"lng\":\"" + lng + "\",";
-    payload += "\"speed\":\"" + speed + "\",";
-    payload += "\"sats\":\"" + sats + "\",";
-    payload += "\"temp\":\"" + temp + "\",";
-    payload += "\"accel\":\"" + acc + "\",";
-    payload += "\"gyro\":\"" + gyro + "\",";
-    payload += "\"lte_module\":\"" + lteMod + "\",";
-    payload += "\"lte_sim\":\"" + lteSim + "\",";
-    payload += "\"lte_net\":\"" + lteNet + "\"";
-    payload += "}";
-
     HTTPClient http;
 
     if (isHttps) {
@@ -41,7 +26,7 @@ void sendWebhookData(String lat, String lng, String speed, String sats, String a
             http.setTimeout(1500); // 1.5s timeout - will not block the main loop significantly
             http.addHeader("Content-Type", "application/json");
             
-            int httpResponseCode = http.POST(payload);
+            int httpResponseCode = http.POST(jsonPayload);
             if (httpResponseCode > 0) {
                 Serial.print("[Webhook] HTTPS POST Response: ");
                 Serial.println(httpResponseCode);
@@ -59,7 +44,7 @@ void sendWebhookData(String lat, String lng, String speed, String sats, String a
             http.setTimeout(1500); // 1.5s timeout
             http.addHeader("Content-Type", "application/json");
 
-            int httpResponseCode = http.POST(payload);
+            int httpResponseCode = http.POST(jsonPayload);
             if (httpResponseCode > 0) {
                 Serial.print("[Webhook] HTTP POST Response: ");
                 Serial.println(httpResponseCode);
